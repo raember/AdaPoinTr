@@ -1,0 +1,10 @@
+NAME: Illustris
+CATEGORY_FILE_PATH: data/Illustris/Illustris.json
+#DATA_PATH: data_dm2gas.hdf5
+DATA_PATH: ../../galaxy_point_clouds_final_new_dm10000_dm2gas16384.hdf5
+#DATA_PATH: /cluster/data/ska/illustris/tng50-1.pc/galaxy_point_clouds_dm2gas_posmas.hdf5
+N_POINTS: 9999
+N_RENDERINGS: 8
+SNAPSHOTS: [50, 78, 90]
+FROM_N: 10000
+TO_N: 16384

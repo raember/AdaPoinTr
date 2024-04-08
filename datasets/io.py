@@ -1,6 +1,6 @@
 import h5py
 import numpy as np
-import open3d
+#import open3d
 import os
 
 class IO:
@@ -11,8 +11,9 @@ class IO:
         if file_extension in ['.npy']:
             return cls._read_npy(file_path)
         elif file_extension in ['.pcd', '.ply']:
+            raise NotImplementedError('open3d sucks')
             return cls._read_pcd(file_path)
-        elif file_extension in ['.h5']:
+        elif file_extension in ['.h5', '.hdf5']:
             return cls._read_h5(file_path)
         elif file_extension in ['.txt']:
             return cls._read_txt(file_path)
@@ -39,4 +40,4 @@ class IO:
     @classmethod
     def _read_h5(cls, file_path):
         f = h5py.File(file_path, 'r')
-        return f['data'][()]
+        return f['data']

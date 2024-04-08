@@ -24,14 +24,14 @@ def get_args():
     # bn
     parser.add_argument(
         '--sync_bn', 
-        action='store_true', 
+        action='store_true',
         default=False, 
         help='whether to use sync bn')
     # some args
     parser.add_argument('--exp_name', type = str, default='default', help = 'experiment name')
     parser.add_argument('--start_ckpts', type = str, default=None, help = 'reload used ckpt path')
     parser.add_argument('--ckpts', type = str, default=None, help = 'test used ckpt path')
-    parser.add_argument('--val_freq', type = int, default=1, help = 'test freq')
+    parser.add_argument('--val_freq', type = int, default=50, help = 'test freq')
     parser.add_argument(
         '--resume', 
         action='store_true', 
@@ -46,7 +46,19 @@ def get_args():
         '--mode', 
         choices=['easy', 'median', 'hard', None],
         default=None,
-        help = 'difficulty mode for shapenet')        
+        help = 'difficulty mode for shapenet')
+    parser.add_argument('--total_bs', type=int, default=32, help='BS [SWEEP]')
+    parser.add_argument('--max_epoch', type=int, default=2000, help='epochs [SWEEP]')
+    parser.add_argument('--num_queries', type=int, default=512, help='num_queries [SWEEP]')
+    parser.add_argument('--opt', type=str, default='AdamW', help='optimizer [SWEEP]')
+    parser.add_argument('--opt_lr', type=float, default=0.00001, help='lr (optimizer) [SWEEP]')
+    parser.add_argument('--opt_wd', type=float, default=0.00003, help='weight decay (optimizer) [SWEEP]')
+    parser.add_argument('--opt_lambda_sparse_dense', type=float, default=0.5, help='lambda sparse vs dense loss (optimizer) [SWEEP]')
+    # parser.add_argument('--opt_warmingup_e', type=int, default=0, help='warm up epochs (optimizer) [SWEEP]')
+    parser.add_argument('--sched', type=str, default='LambdaLR', help='scheduler [SWEEP]')
+    parser.add_argument('--sched_lrd', type=float, default=0.9, help='lr decay (scheduler) [SWEEP]')
+    parser.add_argument('--bnmsched_decay', type=float, default=0.5, help='bn decay (BNM scheduler) [SWEEP]')
+    parser.add_argument('--bnmsched_momentum', type=float, default=0.9, help='bn momentum (BNM scheduler) [SWEEP]')
     args = parser.parse_args()
 
     if args.test and args.resume:

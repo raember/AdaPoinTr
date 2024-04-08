@@ -1,3 +1,5 @@
+import wandb
+
 from tools import run_net
 from tools import test_net
 from utils import parser, dist_utils, misc
@@ -9,6 +11,13 @@ import torch
 from tensorboardX import SummaryWriter
 
 def main():
+    os.putenv('CUDA_VISIBLE_DEVICES', '0')
+    if not torch.cuda.is_available():
+        print("No GPU found")
+        exit(1)
+    # else:
+    #     print("GPU found")
+    #     exit(0)
     # args
     args = parser.get_args()
     # CUDA
@@ -38,6 +47,16 @@ def main():
             val_writer = None
     # config
     config = get_config(args, logger = logger)
+    config.max_epoch = args.max_epoch
+    config.total_bs = args.total_bs
+    config.model.num_query = args.num_queries
+    config.optimizer.type = args.opt
+    config.optimizer.kwargs.lr = args.opt_lr
+    config.optimizer.kwargs.weight_decay = args.opt_wd
+    config.optimizer.lambda_sparse_dense = args.opt_lambda_sparse_dense
+    config.scheduler.type = args.sched
+    config.bnmscheduler.bn_decay = args.bnmsched_decay
+    config.bnmscheduler.bn_momentum = args.bnmsched_momentum
     # batch size
     if args.distributed:
         assert config.total_bs % world_size == 0
@@ -61,6 +80,14 @@ def main():
     if args.test:
         test_net(args, config)
     else:
+        wandb.init(
+            project='MT',
+            name=args.exp_name,
+            tags=['AdaPoinTr'],
+            config={**args.__dict__, **config}
+        )
+        wandb.define_metric('train/*', step_metric='epoch')
+        wandb.define_metric('val/*', step_metric='epoch')
         run_net(args, config, train_writer, val_writer)
 
 

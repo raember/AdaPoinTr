@@ -592,7 +592,7 @@ class DGCNN_Grouper(nn.Module):
                 coor bs N 3
                 f    bs N C(128) 
         '''
-        x = x.transpose(-1, -2).contiguous()
+        x = x[:, :, :3].transpose(-1, -2).contiguous()
 
         coor = x
         f = self.input_trans(x)
@@ -930,7 +930,7 @@ class AdaPoinTr(nn.Module):
     def get_loss(self, ret, gt, epoch=1):
         pred_coarse, denoised_coarse, denoised_fine, pred_fine = ret
         
-        assert pred_fine.size(1) == gt.size(1)
+        assert pred_fine.size(1) == gt.size(1), f"{pred_fine.size(1)} != {gt.size(1)}"
 
         # denoise loss
         idx = knn_point(self.factor, gt, denoised_coarse) # B n k 

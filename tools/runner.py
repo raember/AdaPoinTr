@@ -1,7 +1,23 @@
+import pdb
+import socket
+from copy import deepcopy
+from io import BytesIO
+
+import numpy as np
 import torch
 import torch.nn as nn
 import os
 import json
+
+import torchist
+import wandb
+from PIL import Image
+from matplotlib import pyplot as plt
+from matplotlib.axes import Axes
+from matplotlib.figure import Figure
+from torch.nn import KLDivLoss, functional
+
+from datasets.data_transforms import Compose
 from tools import builder
 from utils import misc, dist_utils
 import time
@@ -9,10 +25,16 @@ from utils.logger import *
 from utils.AverageMeter import AverageMeter
 from utils.metrics import Metrics
 from extensions.chamfer_dist import ChamferDistanceL1, ChamferDistanceL2
+from utils.util import histogram
+
 
 def run_net(args, config, train_writer=None, val_writer=None):
     logger = get_logger(args.log_name)
     # build dataset
+    load_to_ram = socket.gethostname() != 'apu'
+    config.dataset.train.others.load_to_ram = load_to_ram
+    config.dataset.val.others.load_to_ram = load_to_ram
+    config.dataset.test.others.load_to_ram = load_to_ram
     (train_sampler, train_dataloader), (_, test_dataloader) = builder.dataset_builder(args, config.dataset.train), \
                                                             builder.dataset_builder(args, config.dataset.val)
     # build model
@@ -20,6 +42,7 @@ def run_net(args, config, train_writer=None, val_writer=None):
     if args.use_gpu:
         base_model.to(args.local_rank)
 
+    wandb.watch(base_model)
     # from IPython import embed; embed()
     
     # parameter setting
@@ -72,6 +95,14 @@ def run_net(args, config, train_writer=None, val_writer=None):
         builder.resume_optimizer(optimizer, args, logger = logger)
     scheduler = builder.build_scheduler(base_model, optimizer, config, last_epoch=start_epoch-1)
 
+    # transform = Compose([{
+    #     'callback': 'BulgeGalaxy',
+    #     'parameters': {
+    #         'gamma': test_dataloader.dataset.transforms.transformers[0]['callback'].gamma,
+    #         'constant': test_dataloader.dataset.transforms.transformers[0]['callback'].c,
+    #     },
+    #     'objects': ['output']
+    # }])
     # trainval
     # training
     base_model.zero_grad()
@@ -106,6 +137,9 @@ def run_net(args, config, train_writer=None, val_writer=None):
                 gt = data.cuda()
                 partial, _ = misc.seprate_point_cloud(gt, npoints, [int(npoints * 1/4) , int(npoints * 3/4)], fixed_points = None)
                 partial = partial.cuda()
+            elif dataset_name == 'Illustris':
+                partial = data[0].cuda()
+                gt = data[1].cuda()
             else:
                 raise NotImplementedError(f'Train phase do not support {dataset_name}')
 
@@ -114,8 +148,52 @@ def run_net(args, config, train_writer=None, val_writer=None):
             ret = base_model(partial)
             
             sparse_loss, dense_loss = base_model.module.get_loss(ret, gt, epoch)
-         
-            _loss = sparse_loss + dense_loss 
+
+            # # coarse_points = ret[0]
+            # dense_points = ret[-1]
+            # partial_orig = transform({'output': partial[:1,:,:]})['output']
+            # dense_orig = transform({'output': dense_points[:1,:,:]})['output']
+            # gt_orig = transform({'output': gt[:1,:,:]})['output']
+            # partial_orig_dist = torch.linalg.norm(partial_orig, dim=2)
+            # dense_orig_dist = torch.linalg.norm(dense_orig, dim=2)
+            # gt_orig_dist = torch.linalg.norm(gt_orig, dim=2)
+            # max_dist = torch.cat([gt_orig_dist, partial_orig_dist], dim=1).max()
+            # edges = torch.linspace(0, max_dist, 50)
+            # hist_partial = histogram(partial_orig_dist, edges=edges).to(dense_points.dtype)
+            # hist_gt = histogram(gt_orig_dist, edges=edges).to(dense_points.dtype)
+            # hist_dense = histogram(dense_orig_dist, edges=edges).to(dense_points.dtype)
+            # input_d = functional.log_softmax(hist_partial, dim=0)
+            # target_d = functional.softmax(hist_dense, dim=0)
+            # kl_div = KLDivLoss()(input_d, target_d)
+            #
+            # fig, axs = plt.subplots(2, 1, layout='constrained')
+            # fig: Figure
+            # fig.suptitle(
+            #     f"Particle counts over distance from galaxy center (epoch={epoch})")
+            # ax1: Axes = axs[0]
+            # ax2: Axes = axs[1]
+            #
+            # ax1.set_title('DM input')
+            # ax1.stairs(hist_partial.detach().cpu(), edges, fill=True)  # DM input
+            # ax1.grid()
+            #
+            # ax2.set_title('Gas gt & output')
+            # ax2.stairs(hist_gt.detach().cpu(), edges, fill=True, zorder=-1)  # Gas gt
+            # ax2.stairs(hist_dense.detach().cpu(), edges, hatch='//', zorder=0)  # Gas output
+            # ax2.grid()
+            #
+            # fig.show()
+            #
+            # buf = BytesIO()
+            # fig.savefig(buf, format='png')
+            # buf.seek(0)
+            # pil_img = deepcopy(Image.open(buf))
+            # buf.close()
+            # plt.imshow(pil_img)
+            # plt.show()
+
+            lmbda = config.lambda_sparse_dense
+            _loss = lmbda * 2 * sparse_loss + (1 - lmbda) * 2 * dense_loss
             _loss.backward()
 
             # forward
@@ -163,6 +241,12 @@ def run_net(args, config, train_writer=None, val_writer=None):
         if train_writer is not None:
             train_writer.add_scalar('Loss/Epoch/Sparse', losses.avg(0), epoch)
             train_writer.add_scalar('Loss/Epoch/Dense', losses.avg(1), epoch)
+        wandb.log({
+            'train/loss_sparse': losses.avg(0),
+            'train/loss_dense': losses.avg(1),
+            'epoch': epoch,
+            'lr': optimizer.param_groups[0]['lr'],
+        })
         print_log('[Training] EPOCH: %d EpochTime = %.3f (s) Losses = %s' %
             (epoch,  epoch_end_time - epoch_start_time, ['%.4f' % l for l in losses.avg()]), logger = logger)
 
@@ -185,12 +269,21 @@ def validate(base_model, test_dataloader, epoch, ChamferDisL1, ChamferDisL2, val
     print_log(f"[VALIDATION] Start validating epoch {epoch}", logger = logger)
     base_model.eval()  # set model to eval mode
 
-    test_losses = AverageMeter(['SparseLossL1', 'SparseLossL2', 'DenseLossL1', 'DenseLossL2'])
+    test_losses = AverageMeter(['SparseLossL1', 'SparseLossL2', 'DenseLossL1', 'DenseLossL2', 'KLDivLoss'])
     test_metrics = AverageMeter(Metrics.names())
     category_metrics = dict()
     n_samples = len(test_dataloader) # bs is 1
+    # transform = Compose([{
+    #     'callback': 'BulgeGalaxy',
+    #     'parameters': {
+    #         'gamma': test_dataloader.dataset.transforms.transformers[0]['callback'].gamma,
+    #         'constant': test_dataloader.dataset.transforms.transformers[0]['callback'].c,
+    #     },
+    #     'objects': ['output']
+    # }])
 
     interval =  n_samples // 10
+    images = []
 
     with torch.no_grad():
         for idx, (taxonomy_ids, model_ids, data) in enumerate(test_dataloader):
@@ -206,6 +299,9 @@ def validate(base_model, test_dataloader, epoch, ChamferDisL1, ChamferDisL2, val
                 gt = data.cuda()
                 partial, _ = misc.seprate_point_cloud(gt, npoints, [int(npoints * 1/4) , int(npoints * 3/4)], fixed_points = None)
                 partial = partial.cuda()
+            elif dataset_name == 'Illustris':
+                partial = data[0].cuda()
+                gt = data[1].cuda()
             else:
                 raise NotImplementedError(f'Train phase do not support {dataset_name}')
 
@@ -218,20 +314,80 @@ def validate(base_model, test_dataloader, epoch, ChamferDisL1, ChamferDisL2, val
             dense_loss_l1 =  ChamferDisL1(dense_points, gt)
             dense_loss_l2 =  ChamferDisL2(dense_points, gt)
 
+            # pc_input = transform({'output': partial})['output']
+            # pc_output = transform({'output': dense_points})['output']
+            # pc_gt = transform({'output': gt})['output']
+            pc_input = partial
+            pc_output = dense_points
+            pc_gt = gt
+            partial_orig_dist = torch.linalg.norm(pc_input, dim=2)
+            dense_orig_dist = torch.linalg.norm(pc_output, dim=2)
+            gt_orig_dist = torch.linalg.norm(pc_gt, dim=2)
+            max_dist = torch.cat([gt_orig_dist, partial_orig_dist], dim=1).max()
+            edges = torch.linspace(0, max_dist, 50)
+            hist_partial = histogram(partial_orig_dist, edges=edges).to(dense_points.dtype)
+            hist_gt = histogram(gt_orig_dist, edges=edges).to(dense_points.dtype)
+            hist_dense = histogram(dense_orig_dist, edges=edges).to(dense_points.dtype)
+            input_d = functional.log_softmax(hist_partial, dim=0)
+            target_d = functional.softmax(hist_dense, dim=0)
+            kl_div = KLDivLoss()(input_d, target_d)
+
+            if idx % 200 == 0 or model_ids in [[99, 1711]]:  # Interesting idx: 99/1711
+                fig, axs = plt.subplots(2, 1, layout='constrained')
+                fig: Figure
+                fig.suptitle(f"Particle counts over distance from galaxy center (epoch={epoch}, {[model_ids[0][0], model_ids[1][0]]})")
+                ax1: Axes = axs[0]
+                ax2: Axes = axs[1]
+
+                ax1.set_title('DM input')
+                ax1.stairs(hist_partial.detach().cpu(), edges, fill=True)  # DM input
+                ax1.grid()
+
+                ax2.set_title('Gas gt & output')
+                ax2.stairs(hist_gt.detach().cpu(), edges, fill=True, zorder=-1)  # Gas gt
+                ax2.stairs(hist_dense.detach().cpu(), edges, hatch='//', zorder=0)  # Gas output
+                ax2.grid()
+
+                buf = BytesIO()
+                fig.savefig(buf, format='png')
+                buf.seek(0)
+                pil_img = deepcopy(Image.open(buf))
+                buf.close()
+                images.append(pil_img)
+
+                # # Plot galaxy
+                # from tools.inference import plot_clouds
+                # fig2, axes2 = plot_clouds(
+                #     'DM to Gas',
+                #     {
+                #         'DM Input': pc_input,
+                #         'Gas Ground Truth': pc_gt.numpy(),
+                #         '': None,
+                #         'Gas Prediction': pc_output,
+                #     }
+                # )
+                # fig2.tight_layout()
+                # buf2 = BytesIO()
+                # fig2.savefig(buf2, format='png')
+                # buf2.seek(0)
+                # pil_img2 = deepcopy(Image.open(buf2))
+                # buf2.close()
+                # images.append(pil_img2)
+
             if args.distributed:
                 sparse_loss_l1 = dist_utils.reduce_tensor(sparse_loss_l1, args)
                 sparse_loss_l2 = dist_utils.reduce_tensor(sparse_loss_l2, args)
                 dense_loss_l1 = dist_utils.reduce_tensor(dense_loss_l1, args)
                 dense_loss_l2 = dist_utils.reduce_tensor(dense_loss_l2, args)
 
-            test_losses.update([sparse_loss_l1.item() * 1000, sparse_loss_l2.item() * 1000, dense_loss_l1.item() * 1000, dense_loss_l2.item() * 1000])
+            test_losses.update([sparse_loss_l1.item() * 1000, sparse_loss_l2.item() * 1000, dense_loss_l1.item() * 1000, dense_loss_l2.item() * 1000, kl_div])
 
 
             # dense_points_all = dist_utils.gather_tensor(dense_points, args)
             # gt_all = dist_utils.gather_tensor(gt, args)
 
             # _metrics = Metrics.get(dense_points_all, gt_all)
-            _metrics = Metrics.get(dense_points, gt)
+            _metrics = Metrics.get(dense_points, gt, require_emd=True)
             if args.distributed:
                 _metrics = [dist_utils.reduce_tensor(_metric, args).item() for _metric in _metrics]
             else:
@@ -272,7 +428,7 @@ def validate(base_model, test_dataloader, epoch, ChamferDisL1, ChamferDisL2, val
             torch.cuda.synchronize()
      
     # Print testing results
-    shapenet_dict = json.load(open('./data/shapenet_synset_dict.json', 'r'))
+    # shapenet_dict = json.load(open('./data/shapenet_synset_dict.json', 'r'))
     print_log('============================ TEST RESULTS ============================',logger=logger)
     msg = ''
     msg += 'Taxonomy\t'
@@ -288,7 +444,7 @@ def validate(base_model, test_dataloader, epoch, ChamferDisL1, ChamferDisL2, val
         msg += (str(category_metrics[taxonomy_id].count(0)) + '\t')
         for value in category_metrics[taxonomy_id].avg():
             msg += '%.3f \t' % value
-        msg += shapenet_dict[taxonomy_id] + '\t'
+        msg += test_dataloader.dataset.dataset_categories[int(taxonomy_id)]['taxonomy_name'] + '\t'
         print_log(msg, logger=logger)
 
     msg = ''
@@ -301,8 +457,19 @@ def validate(base_model, test_dataloader, epoch, ChamferDisL1, ChamferDisL2, val
     if val_writer is not None:
         val_writer.add_scalar('Loss/Epoch/Sparse', test_losses.avg(0), epoch)
         val_writer.add_scalar('Loss/Epoch/Dense', test_losses.avg(2), epoch)
+        wandb.log({
+            'val/loss_sparse': test_losses.avg(0),
+            'val/loss_dense': test_losses.avg(2),
+            'val/loss_kldiv': test_losses.avg(4),
+            'val/hists': [wandb.Image(img) for img in images],
+            'epoch': epoch,
+        })
         for i, metric in enumerate(test_metrics.items):
             val_writer.add_scalar('Metric/%s' % metric, test_metrics.avg(i), epoch)
+            wandb.log({
+                f'val/{metric}': test_metrics.avg(i),
+                'epoch': epoch,
+            })
 
     return Metrics(config.consider_metric, test_metrics.avg())
 
@@ -350,7 +517,7 @@ def test(base_model, test_dataloader, ChamferDisL1, ChamferDisL2, args, config, 
 
             npoints = config.dataset.test._base_.N_POINTS
             dataset_name = config.dataset.test._base_.NAME
-            if dataset_name == 'PCN' or dataset_name == 'Projected_ShapeNet':
+            if dataset_name == 'PCN' or dataset_name == 'Projected_ShapeNet' or dataset_name == 'Illustris':
                 partial = data[0].cuda()
                 gt = data[1].cuda()
 

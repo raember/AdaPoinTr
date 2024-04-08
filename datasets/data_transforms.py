@@ -107,6 +107,45 @@ class RandomMirrorPoints(object):
         return ptcloud
 
 
+class SplatGalaxy(object):
+    def __init__(self, parameters):
+        self.c = parameters['constant']
+        self.gamma = parameters['gamma']
+
+    def __call__(self, data: np.ndarray) -> np.ndarray:
+        xyz = data
+        # xyz, m = data[:, :3], data[:, 3:]
+        # return np.concatenate([np.absolute((data / self.c).astype(np.csingle)**(1 / self.gamma)), m], axis=1)
+        # sign = np.sign(xyz)
+        # return np.real(np.float_power(xyz * sign / self.c, 1 / self.gamma, dtype=complex)) * self.c * sign
+        dist1 = np.linalg.norm(xyz, axis=1)
+        dist2 = np.real(np.float_power(dist1 / self.c, 1 / self.gamma, dtype=complex)) * self.c
+        ratio = dist2 / dist1
+        return xyz * ratio.reshape(-1, 1)
+
+
+class BulgeGalaxy(object):
+    def __init__(self, parameters):
+        self.c = parameters['constant']
+        self.gamma = parameters['gamma']
+
+    def __call__(self, data: np.ndarray) -> np.ndarray:
+        # xyz, m = data[:, :3], data[:, 3:]
+        xyz = data
+        if isinstance(xyz, torch.Tensor):
+            # sign = torch.sign(xyz)
+            # return torch.pow(xyz * sign / self.c, self.gamma) * self.c * sign
+            dist1 = torch.linalg.norm(xyz, axis=1)
+            dist2 = torch.pow(dist1 / self.c, self.gamma) * self.c
+            ratio = dist2 / dist1
+            return xyz * ratio
+        # sign = np.sign(xyz)
+        # return np.real(np.float_power(xyz * sign / self.c, self.gamma, dtype=complex)) * self.c * sign
+        dist1 = np.linalg.norm(xyz, axis=1)
+        dist2 = np.real(np.float_power(dist1 / self.c, self.gamma, dtype=complex)) * self.c
+        ratio = dist2 / dist1
+        return xyz * ratio.reshape((-1, 1))
+
 class NormalizeObjectPose(object):
     def __init__(self, parameters):
         input_keys = parameters['input_keys']

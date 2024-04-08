@@ -65,6 +65,7 @@ class PoinTr(nn.Module):
         self.knn_layer = config.knn_layer
         self.num_pred = config.num_pred
         self.num_query = config.num_query
+        self.chamfer_loss = config.chamfer_loss
 
         self.fold_step = int(pow(self.num_pred//self.num_query, 0.5) + 0.5)
         self.base_model = PCTransformer(in_chans = 3, embed_dim = self.trans_dim, depth = [6, 8], drop_rate = 0., num_query = self.num_query, knn_layer = self.knn_layer)
@@ -81,7 +82,11 @@ class PoinTr(nn.Module):
         self.build_loss_func()
 
     def build_loss_func(self):
-        self.loss_func = ChamferDistanceL1()
+        if self.chamfer_loss == 'L1':
+            self.loss_func = ChamferDistanceL1()
+        elif self.chamfer_loss == 'L2':
+            self.loss_func = ChamferDistanceL1()
+        raise ValueError(self.chamfer_loss)
 
     def get_loss(self, ret, gt, epoch=0):
         loss_coarse = self.loss_func(ret[0], gt)

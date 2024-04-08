@@ -65,6 +65,8 @@ def build_scheduler(base_model, optimizer, config, last_epoch=-1):
     sche_config = config.scheduler
     if sche_config.type == 'LambdaLR':
         scheduler = build_lambda_sche(optimizer, sche_config.kwargs, last_epoch=last_epoch)  # misc.py
+    elif sche_config.type == 'ConstantLR':
+        scheduler = torch.optim.lr_scheduler.ConstantLR(optimizer, last_epoch=-1)
     elif sche_config.type == 'StepLR':
         scheduler = torch.optim.lr_scheduler.StepLR(optimizer, last_epoch=last_epoch, **sche_config.kwargs)
     elif sche_config.type == 'GradualWarmup':

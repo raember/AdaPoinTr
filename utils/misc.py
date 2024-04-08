@@ -1,3 +1,4 @@
+import numpy
 import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
@@ -336,3 +337,43 @@ class GradualWarmupScheduler(_LRScheduler):
                 return super(GradualWarmupScheduler, self).step(epoch)
         else:
             self.step_ReduceLROnPlateau(metrics, epoch)
+
+def plot_galaxy(pt_cloud: numpy.ndarray) -> np.ndarray:
+    from skais.raytrace import voronoi_RT_2D
+    density = np.zeros((512, 512))
+    voronoi_RT_2D(
+        density,
+        gal.particle_positions.value.astype(np.float32),
+        gal.masses.value.astype(np.float32),
+        gal.radii.value.astype(np.float32),
+        gal.particle_positions.value[:, 0].min().astype(np.float32),
+        gal.particle_positions.value[:, 1].min().astype(np.float32),
+        gal.particle_positions.value[:, 0].max() - gal.particle_positions.value[:, 0].min(),
+        0, 1,
+        True, False
+    )
+    return density
+
+def find_galaxy_center(pc: np.ndarray, soft_length: float = 1.0) -> np.ndarray:
+    pc = pc.copy()
+    center_offset = pc.mean(axis=0)
+    pc = pc - center_offset
+    center = center_offset.copy()
+    RATIO = 0.75
+    # print(f"[{len(pc)}], center => {center}")
+    while np.linalg.norm(center_offset) > soft_length:
+        dists = numpy.linalg.norm(pc, axis=1)
+        mask = dists < dists.max() * RATIO
+        pc = pc[mask]
+        center_offset = pc.mean(axis=0)
+        pc = pc - center_offset
+        center = center + center_offset
+        # print(f"[{len(mask)}] -> [{mask.sum()}], {dists.max():g}, center+{center_offset} => {center}")
+    return center
+
+def get_mass_histogram(pc: np.ndarray, masses: np.ndarray):
+    dists = numpy.linalg.norm(pc - find_galaxy_center(pc, soft_length=10.0), axis=1)
+    idcs = dists.argsort()
+    masses = masses.copy()[idcs]
+    dists = dists[idcs]
+    return masses

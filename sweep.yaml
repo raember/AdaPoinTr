@@ -1,0 +1,42 @@
+program: main.py
+name: dm2gas_no_t
+method: bayes
+metric:
+  goal: minimize
+  name: val/loss_kldiv
+parameters:
+  config:
+    value: cfgs/Illustris/AdaPoinTr.yaml
+  val_freq:
+    value: 50
+  exp_name:
+    value: dm2gas_500_no_t_sweep
+  max_epoch:
+    value: 500
+  total_bs:
+    values: [4, 8, 16, 32]
+  num_queries:
+    values: [128, 256, 512, 1024, 2048]
+  opt:
+    value: "AdamW"
+#    values: ["AdamW", "Adam", "SGD"]
+  opt_lr:
+    distribution: log_uniform_values
+    min: 0.00000001
+    max: 0.01
+  opt_wd:
+    distribution: log_uniform_values
+    min: 0.00000003
+    max: 0.03
+  sched:
+    value: "LambdaLR"
+  bnmsched_decay:
+    distribution: q_log_uniform_values
+    min: 0.05
+    max: 0.95
+  bnmsched_momentum:
+    distribution: q_log_uniform_values
+    min: 0.05
+    max: 0.99
+q: 100
+command: ["${interpreter}", "${program}", "${args}"]

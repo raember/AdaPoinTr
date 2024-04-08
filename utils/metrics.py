@@ -6,7 +6,6 @@
 # @Email:  cshzxie@gmail.com
 
 import logging
-import open3d
 import torch
 from extensions.chamfer_dist import ChamferDistanceL1, ChamferDistanceL2
 import os
@@ -93,6 +92,7 @@ class Metrics(object):
     def _get_open3d_ptcloud(cls, tensor):
         """pred and gt bs is 1"""
         tensor = tensor.squeeze().cpu().numpy()
+        import open3d
         ptcloud = open3d.geometry.PointCloud()
         ptcloud.points = open3d.utility.Vector3dVector(tensor)
 

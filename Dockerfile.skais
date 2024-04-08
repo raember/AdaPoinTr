@@ -1,0 +1,17 @@
+FROM nvidia/cuda:12.2.0-base-ubuntu22.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update
+RUN apt-get install -y software-properties-common
+RUN add-apt-repository -y 'ppa:deadsnakes/ppa'
+RUN apt-get update
+RUN apt-get install -y python3-dev make build-essential python3.11 python3.11-distutils python3.11-dev python3-pip
+RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.11 3
+RUN update-alternatives --install /usr/bin/python-config python-config /usr/bin/python3.11-config 3
+COPY skaislab /skaislab
+WORKDIR /skaislab
+RUN python -m pip install numpy Cython
+#RUN conda install -c anaconda cython
+RUN make skais/raytrace.so
+RUN python -m pip install -e .
+WORKDIR /skais
