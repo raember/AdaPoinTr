@@ -24,4 +24,9 @@ subset:
 agent:
 	srun --pty --ntasks=1 --cpus-per-task=8 --mem=128G --job-name=AdaPoinTr bash -ic \
 	"nvidia-docker run -it --rm -e WANDB_API_KEY=$(shell awk '/api.wandb.ai/ {f=1} f && /password/ {print $$2;f=0}' ~/.netrc) -v $(CURDIR):/pointr -v /raid/ska/illustris:/cluster/data/ska/illustris ${USER}/adapointr:latest wandb agent raember/MT/vqtr3qg2"
-
+plot:
+	python tools/point_collector.py --pc - cfgs/Illustris/AdaPoinTr.yaml ckpt-e1250_ng_s_l2.pth
+aputrain:
+	python main.py --config cfgs/Illustris/AdaPoinTr.yaml --num_workers 1 --exp_name baseline
+inference:
+	python tools/point_collector.py --pc - cfgs/Illustris/AdaPoinTr.yaml ckpt-e930_ng.pth
