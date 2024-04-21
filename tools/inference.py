@@ -13,9 +13,11 @@ import numpy as np
 import cv2
 import sys
 
+import skais.utils.colors
 import torch
 from matplotlib import pyplot as plt
 from matplotlib.axes import Axes
+from matplotlib.colors import Colormap
 from matplotlib.figure import Figure
 from scipy.spatial import cKDTree
 from tqdm import tqdm
@@ -179,28 +181,49 @@ def inference_single(model, pc_path, args, config, root=None):
             cv2.imwrite(str(out_fp.with_suffix('.gas_output.jpg')), misc.get_ptcloud_img(pc_output))
     return
 
+cmaps = [
+    skais.utils.colors.SKAIsCMaps.arcus,
+    skais.utils.colors.SKAIsCMaps.phoenix,
+    skais.utils.colors.SKAIsCMaps.prism,
+    skais.utils.colors.SKAIsCMaps.twofourone,
+    skais.utils.colors.SKAIsCMaps.vibes,
+    skais.utils.colors.SKAIsCMaps.gaseous,
+    skais.utils.colors.SKAIsCMaps.nava,
+]
+CMAP_DM = skais.utils.colors.SKAIsCMaps.arcus
+CMAP_GAS = skais.utils.colors.SKAIsCMaps.gaseous
+CMAP_STAR = skais.utils.colors.SKAIsCMaps.phoenix
 def plot_clouds(title: str, pcs: dict[str, np.ndarray], log_scale: bool = True) -> tuple[Figure, list[Axes]]:
-    fig, axes = plt.subplots(math.ceil(len(pcs) / 3), min(3, len(pcs)))
+    rows = math.ceil(len(pcs) / 3)
+    columns = min(3, len(pcs))
+    fig, axes = plt.subplots(rows, columns)
     fig.set_figheight(10)
     fig.set_figwidth(15)
     fig.suptitle(title)
+    cmaps = np.array([CMAP_DM, CMAP_GAS, CMAP_STAR])
+    cmaps = np.stack([cmaps for _ in range(columns)], axis=1)
+    cmaps = cmaps[:rows, :]
     pc_all = np.concatenate([pc for pc in pcs.values() if pc is not None], axis=0)
     # nan_mask = np.isnan(pc_all).sum(axis=1) > 0
     # pc_all_no_nan = pc_all[~nan_mask]
     xyz_min = pc_all.min(axis=0)
-    box_size = (pc_all.max(axis=0) - pc_all.min(axis=0)).max().astype(np.float32)
+    box_dims = (pc_all.max(axis=0) - pc_all.min(axis=0))
+    # box size considering X and Y coords only
+    box_size = box_dims[0:2].max().astype(np.float32)
     if isinstance(axes, Axes):
         axes = np.array([axes])
-    for ax, pc_data in zip_longest(axes.flatten(), pcs.items()):
+    for ax, pc_data, cmap in zip_longest(axes.flatten(), pcs.items(), cmaps.flatten()):
         if pc_data is None or pc_data[-1] is None:
             fig.delaxes(ax)
             continue
         pc_title, pc = pc_data
         ax.set_title(pc_title)
-        plot_cloud(pc, -xyz_min, ax=ax, box_size=box_size, log_scale=log_scale)
+        # cmap = cmaps.pop(0)
+        # print(pc_title, cmap.name)
+        plot_cloud(pc, -xyz_min, ax=ax, box_size=box_size, log_scale=log_scale, cmap=cmap)
     return fig, axes.flatten()
 
-def plot_cloud(xyz: np.ndarray, offset: np.ndarray, ax: Axes, box_size: float, mean_mass: float = 89603.26, log_scale: bool = True):
+def plot_cloud(xyz: np.ndarray, offset: np.ndarray, ax: Axes, box_size: float, mean_mass: float = 89603.26, log_scale: bool = True, cmap: Colormap = None):
     nan_mask = np.isnan(xyz).sum(axis=1) > 0
     if nan_mask.sum() > 0:
         print(f"NaNs: {nan_mask.sum()}")
@@ -211,14 +234,16 @@ def plot_cloud(xyz: np.ndarray, offset: np.ndarray, ax: Axes, box_size: float, m
     kdtree = cKDTree(xyz, leafsize=16, boxsize=box_size * 10)
     dist, _ = kdtree.query(xyz, 32, workers=4)
     new_box_size = box_size / 2 * math.sqrt(2)
+    xy_offset = new_box_size / 2
     plot = np.zeros((320, 320), dtype=np.double)
+    # [f"{n}: {v[0]:.4f}, {v[1]:.4f}, {v[2]:.4f}" for n, v in [("mean", xyz.mean(axis=0)), ("min", xyz.min(axis=0)), ("max", xyz.max(axis=0)), ("std", xyz.std(axis=0))]]
     voronoi_RT_2D(
         density=plot,
-        pos=np.ascontiguousarray(xyz.astype(np.float32)),
+        pos=np.ascontiguousarray((xyz - offset).astype(np.float32)),
         mass=np.ones((n_points,), dtype=np.float32) * mean_mass,
         radius=np.ascontiguousarray(dist[:, -1].astype(np.float32) * 2),
-        x_min=xyz.min(axis=0).astype(np.float32)[0] + (box_size - new_box_size) / 2,
-        y_min=xyz.min(axis=0).astype(np.float32)[1] + (box_size - new_box_size) / 2,
+        x_min=-xy_offset,
+        y_min=-xy_offset,
         axis_x=0,
         axis_y=1,
         box_size=new_box_size,
@@ -227,7 +252,7 @@ def plot_cloud(xyz: np.ndarray, offset: np.ndarray, ax: Axes, box_size: float, m
     )
     if log_scale:
         plot = np.log10(plot)
-    ax.imshow(plot, zorder=0)
+    ax.imshow(plot, zorder=0, cmap=cmap)
     ax.tick_params(axis='both', which='both', bottom=False, top=False, left=False, right=False, labelbottom=False, labelleft=False)
 
 def main():

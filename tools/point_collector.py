@@ -159,7 +159,7 @@ def inference_single(model, pc_path, args, config, root=None):
         )
         fig_dt.tight_layout()
         fig_dt.show()
-        print()
+        print('=' * 20)
     return
 
 
