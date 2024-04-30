@@ -84,7 +84,8 @@ def main():
             project='MT',
             name=args.exp_name,
             tags=['AdaPoinTr'],
-            config={**args.__dict__, **config}
+            config={**args.__dict__, **config},
+            settings=wandb.Settings(_disable_stats=True)
         )
         wandb.define_metric('train/*', step_metric='epoch')
         wandb.define_metric('val/*', step_metric='epoch')
