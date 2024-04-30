@@ -1,5 +1,5 @@
 program: main.py
-name: dm2gas_no_t
+name: dm2gas_no_t_dense_sparse
 method: bayes
 metric:
   goal: minimize
@@ -10,33 +10,45 @@ parameters:
   val_freq:
     value: 50
   exp_name:
-    value: dm2gas_500_no_t_sweep
+#    value: dm2gas_500_no_t_sweep
+    value: dm2gas_400_no_t_dense_sparse_sweep
   max_epoch:
-    value: 500
+    value: 400
   total_bs:
-    values: [4, 8, 16, 32]
+#    values: [4, 8, 16, 32]
+    value: 32
+  lambda_sparse_dense:
+    distribution: q_uniform
+    min: 0.01
+    max: 0.99
+    q: 0.01
   num_queries:
-    values: [128, 256, 512, 1024, 2048]
+#    values: [128, 256, 512, 1024, 2048]
+    value: 512
   opt:
     value: "AdamW"
-#    values: ["AdamW", "Adam", "SGD"]
   opt_lr:
     distribution: log_uniform_values
     min: 0.00000001
     max: 0.01
   opt_wd:
-    distribution: log_uniform_values
-    min: 0.00000003
-    max: 0.03
+#    distribution: log_uniform_values
+#    min: 0.00000003
+#    max: 0.03
+    value: 0.0003
   sched:
-    value: "LambdaLR"
+#    value: "LambdaLR"
+    value: "ConstantLR"
   bnmsched_decay:
-    distribution: q_log_uniform_values
-    min: 0.05
-    max: 0.95
+#    distribution: q_log_uniform_values
+#    min: 0.05
+#    max: 0.95
+#    q: 0.01
+    value: 0.5
   bnmsched_momentum:
-    distribution: q_log_uniform_values
-    min: 0.05
-    max: 0.99
-q: 100
+#    distribution: q_log_uniform_values
+#    min: 0.05
+#    max: 0.99
+#    q: 0.01
+    value: 0.9
 command: ["${interpreter}", "${program}", "${args}"]
