@@ -47,16 +47,6 @@ def main():
             val_writer = None
     # config
     config = get_config(args, logger = logger)
-    config.max_epoch = args.max_epoch
-    config.total_bs = args.total_bs
-    config.model.num_query = args.num_queries
-    config.optimizer.type = args.opt
-    config.optimizer.kwargs.lr = args.opt_lr
-    config.optimizer.kwargs.weight_decay = args.opt_wd
-    config.optimizer.lambda_sparse_dense = args.opt_lambda_sparse_dense
-    config.scheduler.type = args.sched
-    config.bnmscheduler.bn_decay = args.bnmsched_decay
-    config.bnmscheduler.bn_momentum = args.bnmsched_momentum
     # batch size
     if args.distributed:
         assert config.total_bs % world_size == 0

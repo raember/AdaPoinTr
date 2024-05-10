@@ -42,3 +42,7 @@ raid:
 	rsync -a models "$(raiddir)/" --exclude '**/__pycache__'
 	rsync -a tools "$(raiddir)/" --exclude '**/__pycache__'
 	rsync -a utils "$(raiddir)/" --exclude '**/__pycache__'
+
+# python main.py --bnmsched_decay=0.5 --bnmsched_momentum=0.9 --config=cfgs/Illustris/AdaPoinTr.yaml --exp_name=dm2gas_2000_no_t_10k --lambda_sparse_dense=1 --max_epoch=500 --num_queries=512 --opt=AdamW --opt_lr=0.0001 --opt_wd=0.0003 --sched=ConstantLR --total_bs=16 --val_freq=50
+# python main.py --bnmsched_decay=0.5 --bnmsched_momentum=0.9 --config=cfgs/Illustris/AdaPoinTr.yaml --exp_name=dm2gas_2000_no_t_5k --lambda_sparse_dense=1 --max_epoch=500 --num_queries=512 --opt=AdamW --opt_lr=0.0001 --opt_wd=0.0003 --sched=ConstantLR --total_bs=16 --val_freq=50
+# python main.py --bnmsched_decay=0.5 --bnmsched_momentum=0.9 --config=cfgs/Illustris/AdaPoinTr.yaml --exp_name=dm2gas_2000_no_t_2.5k --lambda_sparse_dense=1 --max_epoch=500 --num_queries=512 --opt=AdamW --opt_lr=0.0001 --opt_wd=0.0003 --sched=ConstantLR --total_bs=16 --val_freq=50

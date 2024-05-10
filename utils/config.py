@@ -1,3 +1,4 @@
+import numpy as np
 import yaml
 from easydict import EasyDict
 import os
@@ -53,6 +54,23 @@ def get_config(args, logger=None):
         print_log(f'Resume yaml from {cfg_path}', logger = logger)
         args.config = cfg_path
     config = cfg_from_yaml_file(args.config)
+    n_points = args.n_points
+    pow = np.log2(n_points / 625)  # 5**4
+    n_out = 2 ** (10 + int(pow))
+    for ds in config.dataset.values():
+        ds.FROM_N = n_points
+        ds.TO_N = n_out
+    config.model.num_points = n_out
+    config.max_epoch = args.max_epoch
+    config.total_bs = args.total_bs
+    config.model.num_query = args.num_queries
+    config.optimizer.type = args.opt
+    config.optimizer.kwargs.lr = args.opt_lr
+    config.optimizer.kwargs.weight_decay = args.opt_wd
+    config.lambda_sparse_dense = args.opt_lambda_sparse_dense
+    config.scheduler.type = args.sched
+    config.bnmscheduler.bn_decay = args.bnmsched_decay
+    config.bnmscheduler.bn_momentum = args.bnmsched_momentum
     if not args.resume and args.local_rank == 0:
         save_experiment_config(args, config, logger)
     return config

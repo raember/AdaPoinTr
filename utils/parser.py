@@ -59,6 +59,7 @@ def get_args():
     parser.add_argument('--sched_lrd', type=float, default=0.9, help='lr decay (scheduler) [SWEEP]')
     parser.add_argument('--bnmsched_decay', type=float, default=0.5, help='bn decay (BNM scheduler) [SWEEP]')
     parser.add_argument('--bnmsched_momentum', type=float, default=0.9, help='bn momentum (BNM scheduler) [SWEEP]')
+    parser.add_argument('--n_points', type=int, default=10000, help='Number of input points')
     args = parser.parse_args()
 
     if args.test and args.resume:
