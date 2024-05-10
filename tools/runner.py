@@ -193,7 +193,7 @@ def run_net(args, config, train_writer=None, val_writer=None):
             # plt.show()
 
             lmbda = config.lambda_sparse_dense
-            _loss = lmbda * 2 * sparse_loss + (1 - lmbda) * 2 * dense_loss
+            _loss = lmbda * sparse_loss + dense_loss
             _loss.backward()
 
             # forward

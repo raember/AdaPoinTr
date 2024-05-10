@@ -1,5 +1,5 @@
 program: main.py
-name: dm2gas_no_t_dense_sparse
+name: dm2gas_no_t_dense_sparse_2
 method: bayes
 metric:
   goal: minimize
@@ -11,26 +11,25 @@ parameters:
     value: 50
   exp_name:
 #    value: dm2gas_500_no_t_sweep
-    value: dm2gas_400_no_t_dense_sparse_sweep
+#    value: dm2gas_400_no_t_dense_sparse_sweep
+    value: dm2gas_500_no_t_dense_sparse_2_sweep
   max_epoch:
-    value: 400
+    value: 500
   total_bs:
 #    values: [4, 8, 16, 32]
-    value: 32
+    value: 16
   lambda_sparse_dense:
-    distribution: q_uniform
-    min: 0.01
-    max: 0.99
-    q: 0.01
+    values: [1, 100]
   num_queries:
 #    values: [128, 256, 512, 1024, 2048]
     value: 512
   opt:
     value: "AdamW"
   opt_lr:
-    distribution: log_uniform_values
-    min: 0.00000001
-    max: 0.01
+#    distribution: log_uniform_values
+#    min: 0.00000001
+#    max: 0.01
+    values: [0.00001, 0.000001]
   opt_wd:
 #    distribution: log_uniform_values
 #    min: 0.00000003
@@ -51,4 +50,6 @@ parameters:
 #    max: 0.99
 #    q: 0.01
     value: 0.9
+  n_points:
+    values: [2500, 5000, 10000]
 command: ["${interpreter}", "${program}", "${args}"]
