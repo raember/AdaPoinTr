@@ -57,11 +57,11 @@ def get_config(args, logger=None):
     n_points = args.n_points
     pow = np.log2(n_points / 625)  # 5**4
     n_out = 2 ** (10 + int(pow))
-    for ds in config.dataset.values():
-        ds['FROM_N'] = n_points
-        ds['TO_N'] = n_out
-        ds.FROM_N = n_points
-        ds.TO_N = n_out
+    for key, ds in config.dataset.items():
+        config['dataset'][key]._base_.FROM_N = n_points
+        config['dataset'][key]._base_.TO_N = n_out
+        config['dataset'][key].FROM_N = n_points
+        config['dataset'][key].TO_N = n_out
     config.model.num_points = n_out
     config.max_epoch = args.max_epoch
     config.total_bs = args.total_bs
