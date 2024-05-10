@@ -58,6 +58,8 @@ def get_config(args, logger=None):
     pow = np.log2(n_points / 625)  # 5**4
     n_out = 2 ** (10 + int(pow))
     for ds in config.dataset.values():
+        ds['FROM_N'] = n_points
+        ds['TO_N'] = n_out
         ds.FROM_N = n_points
         ds.TO_N = n_out
     config.model.num_points = n_out
@@ -67,7 +69,7 @@ def get_config(args, logger=None):
     config.optimizer.type = args.opt
     config.optimizer.kwargs.lr = args.opt_lr
     config.optimizer.kwargs.weight_decay = args.opt_wd
-    config.lambda_sparse_dense = args.opt_lambda_sparse_dense
+    config.lambda_sparse_dense = args.lambda_sparse_dense
     config.scheduler.type = args.sched
     config.bnmscheduler.bn_decay = args.bnmsched_decay
     config.bnmscheduler.bn_momentum = args.bnmsched_momentum

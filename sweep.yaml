@@ -1,9 +1,9 @@
 program: main.py
-name: dm2gas_no_t_dense_sparse_2
-method: bayes
-metric:
-  goal: minimize
-  name: val/loss_kldiv
+name: dm2gas_no_t_fixed_kldiv
+method: grid
+#metric:
+#  goal: minimize
+#  name: val/loss_kldiv
 parameters:
   config:
     value: cfgs/Illustris/AdaPoinTr.yaml

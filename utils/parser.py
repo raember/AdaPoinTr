@@ -53,7 +53,7 @@ def get_args():
     parser.add_argument('--opt', type=str, default='AdamW', help='optimizer [SWEEP]')
     parser.add_argument('--opt_lr', type=float, default=0.00001, help='lr (optimizer) [SWEEP]')
     parser.add_argument('--opt_wd', type=float, default=0.00003, help='weight decay (optimizer) [SWEEP]')
-    parser.add_argument('--opt_lambda_sparse_dense', type=float, default=0.5, help='lambda sparse vs dense loss (optimizer) [SWEEP]')
+    parser.add_argument('--lambda_sparse_dense', type=float, default=0.5, help='lambda sparse vs dense loss (optimizer) [SWEEP]')
     # parser.add_argument('--opt_warmingup_e', type=int, default=0, help='warm up epochs (optimizer) [SWEEP]')
     parser.add_argument('--sched', type=str, default='LambdaLR', help='scheduler [SWEEP]')
     parser.add_argument('--sched_lrd', type=float, default=0.9, help='lr decay (scheduler) [SWEEP]')

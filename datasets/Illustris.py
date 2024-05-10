@@ -56,6 +56,7 @@ class Illustris(data.Dataset):
         self.snapshots = config.SNAPSHOTS
         self.tax_from_n = config.FROM_N
         self.tax_to_n = config.TO_N
+        print_log(f"{self.tax_from_n} -> {self.tax_to_n}")
 
         self.n_points = config.N_POINTS
         self.n_renderings = config.N_RENDERINGS
