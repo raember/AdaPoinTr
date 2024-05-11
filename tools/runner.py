@@ -328,8 +328,8 @@ def validate(base_model, test_dataloader, epoch, ChamferDisL1, ChamferDisL2, val
             hist_partial = histogram(partial_orig_dist, edges=edges).to(dense_points.dtype)
             hist_gt = histogram(gt_orig_dist, edges=edges).to(dense_points.dtype)
             hist_dense = histogram(dense_orig_dist, edges=edges).to(dense_points.dtype)
-            input_d = functional.log_softmax(hist_gt, dim=0)
-            target_d = functional.softmax(hist_dense, dim=0)
+            input_d = functional.log_softmax(hist_dense, dim=0)
+            target_d = functional.softmax(hist_gt, dim=0)
             kl_div = KLDivLoss()(input_d, target_d)
 
             if idx % 200 == 0 or model_ids in [[99, 1711]]:  # Interesting idx: 99/1711
