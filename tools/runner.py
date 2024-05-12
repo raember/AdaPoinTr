@@ -333,7 +333,7 @@ def validate(base_model, test_dataloader, epoch, ChamferDisL1, ChamferDisL2, val
             )(
                 input=functional.log_softmax(hist_dense, dim=0),
                 target=functional.softmax(hist_gt, dim=0),
-            ) / hist_dense.sum() * 10000  # Negate impact of num_points (*10k for convenience)
+            ) / hist_partial.sum() * 10000  # Negate impact of num_points (*10k for convenience)
             # KLDiv DM -> GAS (both gt): ~0.0086
 
             if idx % 200 == 0 or model_ids in [[99, 1711]]:  # Interesting idx: 99/1711
