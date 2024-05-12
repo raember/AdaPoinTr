@@ -15,7 +15,7 @@ from PIL import Image
 from matplotlib import pyplot as plt
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
-from torch.nn import KLDivLoss, functional
+from torch.nn import KLDivLoss, functional, MSELoss
 
 from datasets.data_transforms import Compose
 from tools import builder
@@ -331,10 +331,16 @@ def validate(base_model, test_dataloader, epoch, ChamferDisL1, ChamferDisL2, val
             kl_div = KLDivLoss(
                 reduction='batchmean'
             )(
-                input=functional.log_softmax(hist_dense, dim=0),
-                target=functional.softmax(hist_gt, dim=0),
-            ) / hist_partial.sum() * 10000  # Negate impact of num_points (*10k for convenience)
-            # KLDiv DM -> GAS (both gt): ~0.0086
+                input=functional.log_softmax(hist_dense / hist_dense.sum() * 10000, dim=0),
+                target=functional.softmax(hist_gt / hist_gt.sum() * 10000, dim=0),
+            )
+            # KLDiv DM -> GAS (both gt): ~1.05
+            mse = MSELoss(
+                reduction='sum'
+            )(
+                input=hist_dense / hist_dense.sum(),
+                target=hist_gt / hist_gt.sum(),
+            )
 
             if idx % 200 == 0 or model_ids in [[99, 1711]]:  # Interesting idx: 99/1711
                 fig, axs = plt.subplots(2, 1, layout='constrained')
@@ -384,7 +390,7 @@ def validate(base_model, test_dataloader, epoch, ChamferDisL1, ChamferDisL2, val
                 dense_loss_l1 = dist_utils.reduce_tensor(dense_loss_l1, args)
                 dense_loss_l2 = dist_utils.reduce_tensor(dense_loss_l2, args)
 
-            test_losses.update([sparse_loss_l1.item() * 1000, sparse_loss_l2.item() * 1000, dense_loss_l1.item() * 1000, dense_loss_l2.item() * 1000, kl_div])
+            test_losses.update([sparse_loss_l1.item() * 1000, sparse_loss_l2.item() * 1000, dense_loss_l1.item() * 1000, dense_loss_l2.item() * 1000, kl_div, mse])
 
 
             # dense_points_all = dist_utils.gather_tensor(dense_points, args)
@@ -465,6 +471,7 @@ def validate(base_model, test_dataloader, epoch, ChamferDisL1, ChamferDisL2, val
             'val/loss_sparse': test_losses.avg(0),
             'val/loss_dense': test_losses.avg(2),
             'val/loss_kldiv': test_losses.avg(4),
+            'val/loss_mse': test_losses.avg(5),
             'val/hists': [wandb.Image(img) for img in images],
             'epoch': epoch,
         })
