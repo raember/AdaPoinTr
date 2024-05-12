@@ -3,8 +3,8 @@ optimizer : {
   kwargs: {
   lr : 0.00001,
   weight_decay : 0.00003,
-  chamfer_loss: L1,
-  lambda_sparse_dense: 0.5,
+#  chamfer_loss: L1,
+#  lambda_sparse_dense: 0.5,
 }}
 
 scheduler: {

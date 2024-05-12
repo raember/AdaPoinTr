@@ -328,9 +328,13 @@ def validate(base_model, test_dataloader, epoch, ChamferDisL1, ChamferDisL2, val
             hist_partial = histogram(partial_orig_dist, edges=edges).to(dense_points.dtype)
             hist_gt = histogram(gt_orig_dist, edges=edges).to(dense_points.dtype)
             hist_dense = histogram(dense_orig_dist, edges=edges).to(dense_points.dtype)
-            input_d = functional.log_softmax(hist_dense, dim=0)
-            target_d = functional.softmax(hist_gt, dim=0)
-            kl_div = KLDivLoss()(input_d, target_d)
+            kl_div = KLDivLoss(
+                reduction='batchmean'
+            )(
+                input=functional.log_softmax(hist_dense, dim=0),
+                target=functional.softmax(hist_gt, dim=0),
+            )
+            # KLDiv DM -> GAS (both gt): ~1.35
 
             if idx % 200 == 0 or model_ids in [[99, 1711]]:  # Interesting idx: 99/1711
                 fig, axs = plt.subplots(2, 1, layout='constrained')
