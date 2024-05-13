@@ -269,7 +269,7 @@ def validate(base_model, test_dataloader, epoch, ChamferDisL1, ChamferDisL2, val
     print_log(f"[VALIDATION] Start validating epoch {epoch}", logger = logger)
     base_model.eval()  # set model to eval mode
 
-    test_losses = AverageMeter(['SparseLossL1', 'SparseLossL2', 'DenseLossL1', 'DenseLossL2', 'KLDivLoss'])
+    test_losses = AverageMeter(['SparseLossL1', 'SparseLossL2', 'DenseLossL1', 'DenseLossL2', 'KLDivLoss', 'MSELoss'])
     test_metrics = AverageMeter(Metrics.names())
     category_metrics = dict()
     n_samples = len(test_dataloader) # bs is 1
