@@ -41,14 +41,16 @@ def run_stats(args, config):
     config.dataset.val.others.bs = 1
     (train_sampler, train_dataloader), (_, test_dataloader) = builder.dataset_builder(args, config.dataset.train), \
         builder.dataset_builder(args, config.dataset.val)
-
+    i = 0
     for dataloader in [train_dataloader, test_dataloader]:
         kldiv, mse = get_stats(dataloader)
         print(f"KLDIV: mean: {kldiv.mean()}, std: {kldiv.std()}, min: {kldiv.min()}, max: {kldiv.max()}")
         print(f"MSE:   mean: {mse.mean()}, std: {mse.std()}, min: {mse.min()}, max: {mse.max()}")
-        plt.plot(kldiv.size(0), torch.sort(kldiv).values.cpu().numpy())
-        plt.plot(mse.size(0), torch.sort(mse).values.cpu().numpy())
-        plt.show()
+        plt.plot(range(kldiv.size(0)), torch.sort(kldiv).values.cpu().numpy())
+        plt.savefig(f"kldiv_plot_{i}.png")
+        plt.plot(range(mse.size(0)), torch.sort(mse).values.cpu().numpy())
+        plt.savefig(f"mse_plot_{i}.png")
+        i += 1
     print('done')
 
 
