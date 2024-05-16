@@ -18,11 +18,13 @@ from matplotlib import pyplot as plt
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 from scipy.spatial import cKDTree
+from torch.nn import KLDivLoss, MSELoss, functional
 from tqdm import tqdm
 
 from datasets.Illustris import Illustris
 from tools.inference import plot_clouds
 from utils.misc import find_galaxy_center, get_mass_histogram
+from utils.util import histogram
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.join(BASE_DIR, '../'))
@@ -100,6 +102,31 @@ def inference_single(model, pc_path, args, config, root=None):
         idcs = range(len(ds.dataset.id_list))
     else:
         idcs = range(len(ds.dataset.id_list))
+    want = [
+        (55, 800),
+        (78, 675),
+        (78, 1939),
+    ]
+    # if len(want) > 0:
+    #     idcs = []
+    #     for ss, hi in want:
+    #         tpl = (str(ss), str(hi))
+    #         key = ', '.join(tpl)
+    #         for i, sample in enumerate(ds.dataset.id_list):
+    #             sample_id = ', '.join(sample['model_id'])
+    #             print(i, sample_id)
+    #             if sample_id == key:
+    #                 idcs.append(i)
+    #                 break
+
+    idcs = [
+        0,  # triple merger
+        # 1,  # beautiful simple galaxy
+        2,  # well predicted simple galaxy
+        # 5,  # simple galaxy, bad details
+        7,  # pointy galaxy, bad details and overall
+    ]
+
     # Iterate through all indices
     for idx in tqdm(idcs):
         sample = ds.dataset.id_list[idx]
@@ -136,15 +163,63 @@ def inference_single(model, pc_path, args, config, root=None):
             pc_idcs_gt.append(idcs.copy())
         pc_len = min(len(pc_in), len(pc_gt))
         pc_outputs = []
+        first = True
         for i in range(pc_len):
             sub_data = ds.dataset.transforms({
                 'partial_cloud': data['partial_cloud'][pc_idcs_in[i]],
                 'gtcloud': data['gtcloud'][pc_idcs_gt[i]],
             })
             # inference
-            ret = model(sub_data['partial_cloud'].unsqueeze(0).to(args.device.lower()))
+            partial = sub_data['partial_cloud'].unsqueeze(0).to(args.device.lower())
+            gt = sub_data['gtcloud'].unsqueeze(0).to(args.device.lower())
+            ret = model(partial)
+            dense_points = ret[-1]
             pc_output_t = ret[-1].squeeze(0).detach().cpu().numpy()
             pc_outputs.append(pc_output_t)
+            if first:
+                # Calculate histogram and metrics
+                pc_input = partial
+                pc_output = dense_points
+                partial_orig_dist = torch.linalg.norm(pc_input, dim=2)
+                dense_orig_dist = torch.linalg.norm(pc_output, dim=2)
+                gt_orig_dist = torch.linalg.norm(gt, dim=2)
+                max_dist = torch.cat([gt_orig_dist, partial_orig_dist], dim=1).max()
+                edges = torch.linspace(0, max_dist, 50)
+                hist_partial = histogram(partial_orig_dist, edges=edges).to(dense_points.dtype)
+                hist_gt = histogram(gt_orig_dist, edges=edges).to(dense_points.dtype)
+                hist_dense = histogram(dense_orig_dist, edges=edges).to(dense_points.dtype)
+                kl_div = KLDivLoss(
+                    reduction='batchmean'
+                )(
+                    input=functional.log_softmax(hist_dense / hist_dense.sum() * 10000, dim=0),
+                    target=functional.softmax(hist_gt / hist_gt.sum() * 10000, dim=0),
+                )
+                # KLDiv DM -> GAS (both gt): ~1.05
+                mse = MSELoss(
+                    reduction='sum'
+                )(
+                    input=hist_dense / hist_dense.sum(),
+                    target=hist_gt / hist_gt.sum(),
+                )
+                tqdm.write(f'KLDiv: {kl_div}, MSE: {mse}')
+                fig2, axs = plt.subplots(2, 1, layout='constrained')
+                fig2: Figure
+                fig2.suptitle(
+                    f"Particle counts over distance from galaxy center (epoch={state_dict['epoch']}, [{', '.join(sample['model_id'])}])\nKLDiv: {kl_div:.3e}, MSE: {mse:.3e}")
+                ax1: Axes = axs[0]
+                ax2: Axes = axs[1]
+
+                ax1.set_title('DM input')
+                ax1.stairs(hist_partial.detach().cpu(), edges, fill=True)  # DM input
+                ax1.grid()
+
+                ax2.set_title('Gas gt & output')
+                ax2.stairs(hist_gt.detach().cpu(), edges, fill=True, zorder=-1)  # Gas gt
+                ax2.stairs(hist_dense.detach().cpu(), edges, hatch='//', zorder=0)  # Gas output
+                ax2.grid()
+
+                fig2.show()
+            first = False
 
         fig_dt, _ = plot_clouds(
             f"DM to Gas (accumulated PC) {sample['model_id']} (epoch {state_dict['epoch']})",

@@ -203,6 +203,8 @@ def plot_clouds(title: str, pcs: dict[str, np.ndarray], log_scale: bool = True) 
     cmaps = np.array([CMAP_DM, CMAP_GAS, CMAP_STAR])
     cmaps = np.stack([cmaps for _ in range(columns)], axis=1)
     cmaps = cmaps[:rows, :]
+    # if columns > 2:  # nvm, let's not get fancy. It's gotta be easy to compare.
+    #     cmaps[:, 2:] = CMAP_STAR
     pc_all = np.concatenate([pc for pc in pcs.values() if pc is not None], axis=0)
     # nan_mask = np.isnan(pc_all).sum(axis=1) > 0
     # pc_all_no_nan = pc_all[~nan_mask]
